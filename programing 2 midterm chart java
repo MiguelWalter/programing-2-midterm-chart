@@ -1,0 +1,163 @@
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.category.DefaultCategoryDataset;
+
+import javax.swing.*;
+import java.io.*;
+import java.util.*;
+
+public class GameEarningsAnalysis {
+
+    public static void main(String[] args) {
+        // Open file chooser to select the CSV file
+        String csvFile = selectFile();
+        if (csvFile == null) {
+            System.out.println("No file selected. Exiting program.");
+            return;
+        }
+
+        // Process the selected file
+        List<GameData> gameDataList = readCSV(csvFile);
+        Map<Integer, List<Double>> earningsByYear = processData(gameDataList);
+        Map<Integer, Double> averageEarnings = calculateAverageEarnings(earningsByYear);
+
+        // Print summary of the average earnings by year
+        printSummary(averageEarnings);
+
+        // Generate and display the bar chart for the average earnings by year
+        generateBarChart(averageEarnings);
+
+        // Export processed data (average earnings by year) to a new CSV file
+        exportProcessedData(averageEarnings, "average_earnings_by_year.csv");
+    }
+
+    // Class to store each game's data (release year and total earnings)
+    static class GameData {
+        int releaseYear;
+        double totalMoney;
+
+        public GameData(int releaseYear, double totalMoney) {
+            this.releaseYear = releaseYear;
+            this.totalMoney = totalMoney;
+        }
+    }
+
+    // Open file chooser dialog to select CSV file
+    public static String selectFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select CSV File");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV Files", "csv"));
+        int result = fileChooser.showOpenDialog(null);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            return fileChooser.getSelectedFile().getAbsolutePath();
+        } else {
+            return null; // User canceled file selection
+        }
+    }
+
+    // Read CSV file and parse data into a list of GameData objects
+    public static List<GameData> readCSV(String csvFile) {
+        List<GameData> gameDataList = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(csvFile))) {
+            String line;
+            reader.readLine(); // Skip header row
+            while ((line = reader.readLine()) != null) {
+                String[] tokens = line.split(",");
+                try {
+                    // Assuming the release year is the last column and total earnings are second to last
+                    int releaseYear = Integer.parseInt(tokens[tokens.length - 1].trim());  // Last column is Release Year
+                    double totalMoney = Double.parseDouble(tokens[tokens.length - 2].trim());  // Second last column is TotalMoney
+                    gameDataList.add(new GameData(releaseYear, totalMoney));
+                } catch (NumberFormatException e) {
+                    System.err.println("Error parsing data: " + Arrays.toString(tokens));
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return gameDataList;
+    }
+
+    // Process the data to group earnings by release year
+    public static Map<Integer, List<Double>> processData(List<GameData> gameDataList) {
+        Map<Integer, List<Double>> earningsByYear = new HashMap<>();
+        for (GameData game : gameDataList) {
+            earningsByYear
+                .computeIfAbsent(game.releaseYear, k -> new ArrayList<>())
+                .add(game.totalMoney);
+        }
+        return earningsByYear;
+    }
+
+    // Calculate the average earnings per release year
+    public static Map<Integer, Double> calculateAverageEarnings(Map<Integer, List<Double>> earningsByYear) {
+        Map<Integer, Double> averageEarnings = new HashMap<>();
+        for (Map.Entry<Integer, List<Double>> entry : earningsByYear.entrySet()) {
+            int year = entry.getKey();
+            List<Double> earnings = entry.getValue();
+            double sum = 0;
+            for (double earning : earnings) {
+                sum += earning;
+            }
+            averageEarnings.put(year, sum / earnings.size());  // Calculate average
+        }
+        return averageEarnings;
+    }
+
+    // Print the summary of the average earnings
+    public static void printSummary(Map<Integer, Double> averageEarnings) {
+        System.out.println("Average Earnings by Release Year:");
+        for (Map.Entry<Integer, Double> entry : averageEarnings.entrySet()) {
+            System.out.printf("Year: %d, Average Earnings: %.2f%n", entry.getKey(), entry.getValue());
+        }
+    }
+
+    // Generate a bar chart for the average earnings by release year
+    public static void generateBarChart(Map<Integer, Double> averageEarnings) {
+        // Sort the years in ascending order
+        List<Map.Entry<Integer, Double>> sortedEntries = new ArrayList<>(averageEarnings.entrySet());
+        sortedEntries.sort(Map.Entry.comparingByKey());  // Sort by release year (ascending)
+
+        // Create a dataset for the bar chart
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        // Add sorted data to the dataset
+        for (Map.Entry<Integer, Double> entry : sortedEntries) {
+            dataset.addValue(entry.getValue(), "Average Earnings", entry.getKey());
+        }
+
+        // Create the bar chart
+        JFreeChart barChart = ChartFactory.createBarChart(
+                "Average Earnings by Release Year",   // Chart title
+                "Release Year",                       // X-axis label
+                "Average Earnings",                   // Y-axis label
+                dataset,                              // Dataset
+                PlotOrientation.VERTICAL,             // Plot orientation
+                true, true, false                     // Include legend, tooltips, and URLs
+        );
+
+        // Display the chart in a JFrame
+        ChartPanel chartPanel = new ChartPanel(barChart);
+        chartPanel.setPreferredSize(new java.awt.Dimension(800, 600));
+        JFrame frame = new JFrame("Earnings Chart");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.getContentPane().add(chartPanel);
+        frame.pack();
+        frame.setVisible(true);
+    }
+
+    // Export the processed data (average earnings by year) to a new CSV file
+    public static void exportProcessedData(Map<Integer, Double> averageEarnings, String outputFile) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
+            writer.write("Release Year,Average Earnings\n");
+            for (Map.Entry<Integer, Double> entry : averageEarnings.entrySet()) {
+                writer.write(entry.getKey() + "," + entry.getValue() + "\n");
+            }
+            System.out.println("Processed data exported to " + outputFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
