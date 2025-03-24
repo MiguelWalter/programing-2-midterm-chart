@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Earnings Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7fc;
+            color: #333;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 20px;
+        }
+
+        /* File Input Styling */
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+
+        input[type="file"]:hover {
+            border-color: #3498db;
+        }
+
+        /* Summary Styling */
+        #summary {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+        }
+
+        #summary strong {
+            font-size: 18px;
+            color: #3498db;
+        }
+
+        /* Chart Styling */
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            canvas {
+                width: 100%;
+                max-width: 100%;
+                height: auto;
+            }
+
+            #summary {
+                padding: 15px;
+            }
+
+            h1, h2 {
+                font-size: 1.2em;
+            }
+
+            input[type="file"] {
+                font-size: 14px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Game Earnings Analysis</h1>
+
+    <!-- File input to select CSV file -->
+    <input type="file" id="csvFileInput" accept=".csv" />
+
+    <h2>Average Earnings by Release Year</h2>
+    <div id="summary"></div>
+
+    <h2>Bar Chart</h2>
+    <canvas id="earningsChart" width="800" height="600"></canvas>
+
+    <script>
+        // Handle CSV file reading and processing
+        document.getElementById('csvFileInput').addEventListener('change', handleFileSelect, false);
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const csvData = e.target.result;
+                    const gameDataList = readCSV(csvData);
+                    const earningsByYear = processData(gameDataList);
+                    const averageEarnings = calculateAverageEarnings(earningsByYear);
+
+                    printSummary(averageEarnings);
+                    generateBarChart(averageEarnings);
+                };
+                reader.readAsText(file);
+            } else {
+                alert('Please select a valid CSV file.');
+            }
+        }
+
+        // Parse CSV data into an array of GameData objects
+        function readCSV(csvData) {
+            const gameDataList = [];
+            const rows = csvData.split('\n');
+            rows.slice(1).forEach(row => {
+                const columns = row.split(',');
+                if (columns.length >= 2) {
+                    const totalMoney = parseFloat(columns[columns.length - 2].trim());
+                    const releaseYear = parseInt(columns[columns.length - 1].trim());
+                    if (!isNaN(totalMoney) && !isNaN(releaseYear)) {
+                        gameDataList.push({ releaseYear, totalMoney });
+                    }
+                }
+            });
+            return gameDataList;
+        }
+
+        // Group earnings by release year
+        function processData(gameDataList) {
+            const earningsByYear = {};
+            gameDataList.forEach(game => {
+                if (!earningsByYear[game.releaseYear]) {
+                    earningsByYear[game.releaseYear] = [];
+                }
+                earningsByYear[game.releaseYear].push(game.totalMoney);
+            });
+            return earningsByYear;
+        }
+
+        // Calculate average earnings per year
+        function calculateAverageEarnings(earningsByYear) {
+            const averageEarnings = {};
+            for (const year in earningsByYear) {
+                const earnings = earningsByYear[year];
+                const sum = earnings.reduce((acc, curr) => acc + curr, 0);
+                averageEarnings[year] = sum / earnings.length;
+            }
+            return averageEarnings;
+        }
+
+        // Print the summary of average earnings
+        function printSummary(averageEarnings) {
+            const summaryDiv = document.getElementById('summary');
+            summaryDiv.innerHTML = '<strong>Average Earnings by Release Year:</strong><br>';
+            for (const year in averageEarnings) {
+                summaryDiv.innerHTML += `Year: ${year}, Average Earnings: $${averageEarnings[year].toFixed(2)}<br>`;
+            }
+        }
+
+        // Generate and display the bar chart using Chart.js
+        function generateBarChart(averageEarnings) {
+            const years = Object.keys(averageEarnings).sort();
+            const earnings = years.map(year => averageEarnings[year]);
+
+            const ctx = document.getElementById('earningsChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [{
+                        label: 'Average Earnings',
+                        data: earnings,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Release Year'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Average Earnings ($)'
+                            },
+                            ticks: {
+                                // Custom tick formatting
+                                callback: function(value) {
+                                    // Convert to 'k' format
+                                    if (value >= 1000) {
+                                        return '$' + (value / 1000).toFixed(0) + 'k';
+                                    }
+                                    return '$' + value;
+                                },
+                                // Set the step size for the Y-axis
+                                stepSize: 50000
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
