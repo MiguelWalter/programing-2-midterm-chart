@@ -1,10 +1,14 @@
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.data.category.DefaultCategoryDataset;
 
 import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.*;
 import java.util.*;
 
@@ -26,7 +30,7 @@ public class GameEarningsAnalysis {
         // Print summary of the average earnings by year
         printSummary(averageEarnings);
 
-        // Generate and display the bar chart for the average earnings by year
+        // Generate and display the bar chart for the average earnings by year with animation
         generateBarChart(averageEarnings);
 
         // Export processed data (average earnings by year) to a new CSV file
@@ -114,7 +118,7 @@ public class GameEarningsAnalysis {
         }
     }
 
-    // Generate a bar chart for the average earnings by release year
+    // Generate a bar chart for the average earnings by release year with animation
     public static void generateBarChart(Map<Integer, Double> averageEarnings) {
         // Sort the years in ascending order
         List<Map.Entry<Integer, Double>> sortedEntries = new ArrayList<>(averageEarnings.entrySet());
@@ -123,9 +127,9 @@ public class GameEarningsAnalysis {
         // Create a dataset for the bar chart
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 
-        // Add sorted data to the dataset
+        // Initially set the value to 0 for animation purposes
         for (Map.Entry<Integer, Double> entry : sortedEntries) {
-            dataset.addValue(entry.getValue(), "Average Earnings", entry.getKey());
+            dataset.addValue(0, "Average Earnings", entry.getKey());  
         }
 
         // Create the bar chart
@@ -138,6 +142,11 @@ public class GameEarningsAnalysis {
                 true, true, false                     // Include legend, tooltips, and URLs
         );
 
+        // Customize the plot
+        CategoryPlot plot = barChart.getCategoryPlot();
+        BarRenderer renderer = (BarRenderer) plot.getRenderer();
+        renderer.setMaximumBarWidth(0.05);  // Control the width of the bars
+
         // Display the chart in a JFrame
         ChartPanel chartPanel = new ChartPanel(barChart);
         chartPanel.setPreferredSize(new java.awt.Dimension(800, 600));
@@ -146,6 +155,25 @@ public class GameEarningsAnalysis {
         frame.getContentPane().add(chartPanel);
         frame.pack();
         frame.setVisible(true);
+
+        // Add animation using a Timer (slower animation)
+        javax.swing.Timer timer = new javax.swing.Timer(100, new ActionListener() {  // 100 ms delay for slower animation
+            private int index = 0;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (index < sortedEntries.size()) {
+                    // Gradually update the dataset value for each year
+                    Map.Entry<Integer, Double> entry = sortedEntries.get(index);
+                    dataset.setValue(entry.getValue(), "Average Earnings", entry.getKey());
+                    index++;
+                } else {
+                    // Stop the animation once all data has been shown
+                    ((javax.swing.Timer) e.getSource()).stop();
+                }
+            }
+        });
+        timer.start();
     }
 
     // Export the processed data (average earnings by year) to a new CSV file
