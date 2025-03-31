@@ -30,8 +30,8 @@ public class GameEarningsAnalysis {
         // Print summary of the average earnings by year
         printSummary(averageEarnings);
 
-        // Generate and display the bar chart for the average earnings by year with animation
-        generateBarChart(averageEarnings);
+        // Generate and display the bar chart for the average earnings by year with sequential animation
+        generateBarChartWithAnimation(averageEarnings);
 
         // Export processed data (average earnings by year) to a new CSV file
         exportProcessedData(averageEarnings, "average_earnings_by_year.csv");
@@ -119,7 +119,7 @@ public class GameEarningsAnalysis {
     }
 
     // Generate a bar chart for the average earnings by release year with animation
-    public static void generateBarChart(Map<Integer, Double> averageEarnings) {
+    public static void generateBarChartWithAnimation(Map<Integer, Double> averageEarnings) {
         // Sort the years in ascending order
         List<Map.Entry<Integer, Double>> sortedEntries = new ArrayList<>(averageEarnings.entrySet());
         sortedEntries.sort(Map.Entry.comparingByKey());  // Sort by release year (ascending)
@@ -127,9 +127,9 @@ public class GameEarningsAnalysis {
         // Create a dataset for the bar chart
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 
-        // Initially set the value to 0 for animation purposes
+        // Initially set the value to 0 for animation purposes (bars start from the bottom)
         for (Map.Entry<Integer, Double> entry : sortedEntries) {
-            dataset.addValue(0, "Average Earnings", entry.getKey());  
+            dataset.addValue(0, "Average Earnings", entry.getKey());  // Initially, set all bars to 0 (ground level)
         }
 
         // Create the bar chart
@@ -156,24 +156,56 @@ public class GameEarningsAnalysis {
         frame.pack();
         frame.setVisible(true);
 
-        // Add animation using a Timer (slower animation)
-        javax.swing.Timer timer = new javax.swing.Timer(100, new ActionListener() {  // 100 ms delay for slower animation
-            private int index = 0;
+        // Add animation using a Timer to animate the bars appearing one by one
+        javax.swing.Timer timer = new javax.swing.Timer(1000, new ActionListener() {  // 1000 ms delay for each bar
+            private int currentIndex = 0;  // Index to track which bar to show next
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (index < sortedEntries.size()) {
-                    // Gradually update the dataset value for each year
-                    Map.Entry<Integer, Double> entry = sortedEntries.get(index);
-                    dataset.setValue(entry.getValue(), "Average Earnings", entry.getKey());
-                    index++;
+                if (currentIndex < sortedEntries.size()) {
+                    // Get the current entry to animate
+                    Map.Entry<Integer, Double> entry = sortedEntries.get(currentIndex);
+                    double targetValue = entry.getValue();
+                    
+                    // Animate the bar rising from 0 to its target value
+                    animateBar(dataset, entry.getKey(), targetValue);
+                    
+                    // Move to the next index for the next bar
+                    currentIndex++;
                 } else {
-                    // Stop the animation once all data has been shown
+                    // Stop the animation once all bars have been displayed
                     ((javax.swing.Timer) e.getSource()).stop();
                 }
             }
         });
+
+        // Start the animation
         timer.start();
+    }
+
+    // Animate the bar rising from 0 to its target value
+    private static void animateBar(DefaultCategoryDataset dataset, Comparable<?> category, double targetValue) {
+        // Create a timer for the animation of the current bar
+        javax.swing.Timer animationTimer = new javax.swing.Timer(30, new ActionListener() { // Faster animation
+            private double currentValue = 0;  // Current value of the bar
+            private final double increment = targetValue / 10;  // Faster increment value
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (currentValue < targetValue) {
+                    currentValue += increment;  // Increase the current value
+                    if (currentValue > targetValue) {
+                        currentValue = targetValue;  // Ensure it doesn't exceed the target
+                    }
+                    dataset.setValue(currentValue, "Average Earnings", category);  // Update the dataset value
+                } else {
+                    ((javax.swing.Timer) e.getSource()).stop();  // Stop the animation when done
+                }
+            }
+        });
+
+        // Start the animation for the current bar
+        animationTimer.start();
     }
 
     // Export the processed data (average earnings by year) to a new CSV file
